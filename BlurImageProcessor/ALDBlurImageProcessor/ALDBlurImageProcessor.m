@@ -50,7 +50,7 @@ NSString * const ALDBlurImageProcessorImageProcessingErrorNotificationErrorCodeK
     {
         if( newImageToProcess != _imageToProcess )
         {
-            _imageToProcess = newImageToProcess;
+            _imageToProcess = [self normalizedImage:newImageToProcess];;
             [self initBlurProcessingBuffers];
         }
     }
@@ -391,6 +391,35 @@ NSString * const ALDBlurImageProcessorImageProcessingErrorNotificationErrorCodeK
     [imageBlurProcessingQueue addOperation: blurOperation];
     
     lastOperation = blurOperation;
+}
+
+#pragma mark - Utilities
+
+- (UIImage *)normalizedImage:(UIImage*)image
+{
+    if (CGColorSpaceGetModel(CGImageGetColorSpace(image.CGImage)) == kCGColorSpaceModelRGB) {
+        return image;
+    }
+    
+    CGFloat screenScale = [[UIScreen mainScreen] scale];
+    CGSize size = CGSizeMake(round(image.size.width*screenScale), round(image.size.height*screenScale));
+    CGColorSpaceRef genericColorSpace = CGColorSpaceCreateDeviceRGB();
+    CGContextRef thumbBitmapCtxt = CGBitmapContextCreate(NULL,
+                                                         size.width,
+                                                         size.height,
+                                                         8, (4 * size.width),
+                                                         genericColorSpace,
+                                                         kCGImageAlphaPremultipliedFirst | 0);
+    CGColorSpaceRelease(genericColorSpace);
+    CGContextSetInterpolationQuality(thumbBitmapCtxt, kCGInterpolationDefault);
+    CGRect destRect = CGRectMake(0, 0, size.width, size.height);
+    CGContextDrawImage(thumbBitmapCtxt, destRect, image.CGImage);
+    CGImageRef tmpThumbImage = CGBitmapContextCreateImage(thumbBitmapCtxt);
+    CGContextRelease(thumbBitmapCtxt);
+    UIImage *normalizedImage = [UIImage imageWithCGImage:tmpThumbImage scale:screenScale orientation:image.imageOrientation];
+    CGImageRelease(tmpThumbImage);
+    
+    return normalizedImage;
 }
 
 #pragma mark - NSOperationQueue Management
